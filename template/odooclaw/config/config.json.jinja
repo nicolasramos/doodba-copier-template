@@ -1,0 +1,87 @@
+{% if use_odooclaw %}
+{
+  "agents": {
+    "defaults": {
+      "workspace": "~/.odooclaw/workspace",
+      "restrict_to_workspace": true,
+      "model_name": "${ODOOCLAW_AGENTS_DEFAULTS_MODEL_NAME:-gpt-4o-mini}",
+      "max_tokens": 8192,
+      "temperature": 0.7,
+      "max_tool_iterations": 20
+    }
+  },
+  "channels": {
+    "odoo": {
+      "enabled": true,
+      "webhook_host": "0.0.0.0",
+      "webhook_port": 18790,
+      "webhook_path": "/webhook/odoo",
+      "allow_from": [],
+      "reasoning_channel_id": ""
+    }
+  },
+  "tools": {
+    "mcp": {
+      "enabled": true,
+      "servers": {
+        "odoo-mcp": {
+          "enabled": true,
+          "command": "python3",
+          "args": ["-m", "odoo_mcp.server"],
+          "env": {
+            "PYTHONUNBUFFERED": "1"
+          }
+        },
+        "whisper-stt": {
+          "enabled": true,
+          "command": "whisper-stt-mcp.py",
+          "args": [],
+          "env": {
+            "PYTHONUNBUFFERED": "1",
+            "OPENAI_API_KEY": "${OPENAI_API_KEY}",
+            "STT_PROVIDER": "${STT_PROVIDER}",
+            "STT_API_BASE": "${STT_API_BASE}",
+            "STT_API_KEY": "${STT_API_KEY}",
+            "STT_OPENAI_MODEL": "${STT_OPENAI_MODEL}"
+          }
+        },
+        "edge-tts": {
+          "enabled": true,
+          "command": "edge-tts-mcp.py",
+          "args": [],
+          "env": {
+            "PYTHONUNBUFFERED": "1"
+          }
+        },
+        "ocr-invoice": {
+          "enabled": true,
+          "command": "ocr-invoice-mcp.py",
+          "args": [],
+          "env": {
+            "PYTHONUNBUFFERED": "1",
+            "VISION_API_BASE": "${OPENAI_API_BASE}",
+            "VISION_MODEL": "gpt-4o-mini",
+            "OPENAI_API_KEY": "${OPENAI_API_KEY}",
+            "OCR_TIMEOUT_SECONDS": "240",
+            "OCR_MAX_PAGES": "4",
+            "OCR_IMAGE_DPI": "170"
+          }
+        },
+        "rlm-utils": {
+          "enabled": true,
+          "command": "rlm-utils-mcp.py",
+          "args": [],
+          "env": {
+            "PYTHONUNBUFFERED": "1",
+            "WORKSPACE_PATH": "${ODOOCLAW_WORKSPACE_PATH}"
+          }
+        }
+      }
+    }
+  },
+  "gateway": {
+    "host": "0.0.0.0",
+    "port": 18790
+  }
+}
+{% endif %}

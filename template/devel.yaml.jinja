@@ -4,6 +4,10 @@
 version: "2.4"
 
 {% endif %}
+{% if use_odooclaw %}
+include:
+  - odooclaw.yaml
+{% endif %}
 services:
   odoo_proxy:
     image: ghcr.io/tecnativa/docker-whitelist:latest

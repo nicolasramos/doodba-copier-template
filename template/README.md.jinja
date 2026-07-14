@@ -24,6 +24,34 @@ This project is a Doodba scaffolding. Check upstream docs on the matter:
 - [General Doodba docs](https://github.com/Tecnativa/doodba).
 - [Doodba copier template docs](https://github.com/Tecnativa/doodba-copier-template)
 - [Doodba QA docs](https://github.com/Tecnativa/doodba-qa)
+{% if use_odooclaw %}
+
+## OdooClaw
+
+This project includes [OdooClaw](https://github.com/nicolasramos/odooclaw), an AI agent
+framework that integrates with Odoo via XML-RPC and MCP.
+
+### Quick start
+
+1. Edit `.docker/odoo.env` with your API keys (OPENAI_API_KEY, etc.)
+2. Run `scripts/setup-odooclaw.sh` to bootstrap config
+3. Start the stack: `invoke start`
+4. Run smoke test: `scripts/smoke-test-odooclaw.sh`
+
+### Module source
+
+The `mail_bot_odooclaw` module is automatically pulled from
+https://github.com/nicolasramos/odoo-addons via `git-aggregate`
+(see `odoo/custom/src/repos.yaml`).
+
+### Updating OdooClaw
+
+The OdooClaw service uses a pre-built Docker image. To update it, pull the
+latest image:
+
+    docker compose pull odooclaw
+    invoke start
+{% endif %}
 
 # Credits
 

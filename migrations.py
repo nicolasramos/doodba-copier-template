@@ -298,3 +298,145 @@ def add_new_domains(
     _add_new_items_to_list(
         dst_path, answers_rel_path, varname, domains_version[version]
     )
+
+
+@task
+def add_odooclaw(c, dst_path, answers_rel_path):
+    """Migration task: add OdooClaw files to an existing project on copier update."""
+    dst = Path(dst_path)
+    answers = Path(answers_rel_path)
+    if not answers.exists():
+        print("Answers file not found, skipping OdooClaw migration.")
+        return
+
+    with open(answers) as f:
+        answers_data = yaml.safe_load(f)
+
+    if not answers_data.get("use_odooclaw"):
+        print("use_odooclaw is not enabled, skipping OdooClaw migration.")
+        return
+
+    # 1. Add include to devel.yaml
+    devel_file = dst / "devel.yaml"
+    if devel_file.exists():
+        content = devel_file.read_text()
+        if "include:" not in content:
+            content = "include:\n  - odooclaw.yaml\n\n" + content
+            devel_file.write_text(content)
+            print("Added include: odooclaw.yaml to devel.yaml")
+        elif "- odooclaw.yaml" not in content:
+            # Add to existing include block
+            lines = content.split("\n")
+            new_lines = []
+            added = False
+            for line in lines:
+                new_lines.append(line)
+                if line.strip().startswith("include:") and not added:
+                    new_lines.append("  - odooclaw.yaml")
+                    added = True
+            devel_file.write_text("\n".join(new_lines))
+            print("Added odooclaw.yaml to existing include in devel.yaml")
+
+    # 2. Add include to prod.yaml
+    prod_file = dst / "prod.yaml"
+    if prod_file.exists():
+        content = prod_file.read_text()
+        if "include:" not in content:
+            content = "include:\n  - odooclaw.yaml\n\n" + content
+            prod_file.write_text(content)
+            print("Added include: odooclaw.yaml to prod.yaml")
+        elif "- odooclaw.yaml" not in content:
+            lines = content.split("\n")
+            new_lines = []
+            added = False
+            for line in lines:
+                new_lines.append(line)
+                if line.strip().startswith("include:") and not added:
+                    new_lines.append("  - odooclaw.yaml")
+                    added = True
+            prod_file.write_text("\n".join(new_lines))
+            print("Added odooclaw.yaml to existing include in prod.yaml")
+
+    # 3. Add odoo-addons to repos.yaml
+    repos_file = dst / "odoo" / "custom" / "src" / "repos.yaml"
+    if repos_file.exists():
+        content = repos_file.read_text()
+        if "odooclaw" not in content and "odoo-addons" not in content:
+            content += "\n./odoo-addons:\n"
+            content += "  defaults:\n"
+            content += "    depth: $DEPTH_DEFAULT\n"
+            content += "  remotes:\n"
+            content += "    nico: https://github.com/nicolasramos/odoo-addons.git\n"
+            content += "  target: nico $ODOO_VERSION\n"
+            content += "  merges:\n"
+            content += "    - nico $ODOO_VERSION\n"
+            repos_file.write_text(content)
+            print("Added odoo-addons entry to repos.yaml")
+
+    # 4. Create odooclaw/config directory and config.json if not exists
+    config_dir = dst / "odooclaw" / "config"
+    config_file = config_dir / "config.json"
+    if not config_file.exists():
+        config_dir.mkdir(parents=True, exist_ok=True)
+        config_content = {
+            "agents": {
+                "defaults": {
+                    "workspace": "~/.odooclaw/workspace",
+                    "restrict_to_workspace": True,
+                    "model_name": "${ODOOCLAW_AGENTS_DEFAULTS_MODEL_NAME:-gpt-4o-mini}",
+                    "max_tokens": 8192,
+                    "temperature": 0.7,
+                    "max_tool_iterations": 20,
+                }
+            },
+            "channels": {
+                "odoo": {
+                    "enabled": True,
+                    "webhook_host": "0.0.0.0",
+                    "webhook_port": 18790,
+                    "webhook_path": "/webhook/odoo",
+                    "allow_from": [],
+                    "reasoning_channel_id": "",
+                }
+            },
+            "tools": {
+                "mcp": {
+                    "enabled": True,
+                    "servers": {
+                        "odoo-mcp": {
+                            "enabled": True,
+                            "command": "python3",
+                            "args": ["-m", "odoo_mcp.server"],
+                            "env": {"PYTHONUNBUFFERED": "1"},
+                        },
+                    },
+                }
+            },
+            "gateway": {
+                "host": "0.0.0.0",
+                "port": 18790,
+            },
+        }
+        with open(config_file, "w") as f:
+            yaml.safe_dump(config_content, f)
+        print("Created odooclaw/config/config.json")
+
+    # 5. Add OdooClaw env vars to .docker/odoo.env if not present
+    env_file = dst / ".docker" / "odoo.env"
+    if env_file.exists():
+        content = env_file.read_text()
+        if "ODOOCLAW_CHANNELS_ODOO_ENABLED" not in content:
+            content += "\n# OdooClaw\n"
+            content += "ODOO_DB=devel\n"
+            content += "ODOO_USERNAME=admin\n"
+            content += "ODOO_PASSWORD=admin\n"
+            content += "ODOOCLAW_CHANNELS_ODOO_ENABLED=true\n"
+            content += "ODOOCLAW_CHANNELS_ODOO_WEBHOOK_HOST=0.0.0.0\n"
+            content += "ODOOCLAW_CHANNELS_ODOO_WEBHOOK_PORT=18790\n"
+            content += "ODOOCLAW_CHANNELS_ODOO_WEBHOOK_PATH=/webhook/odoo\n"
+            content += "ODOOCLAW_REDIS_URL=redis://redis:6379/0\n"
+            content += "ODOOCLAW_JOB_STORE=odoo\n"
+            env_file.write_text(content)
+            print("Added OdooClaw env vars to .docker/odoo.env")
+
+    print("OdooClaw migration completed.")

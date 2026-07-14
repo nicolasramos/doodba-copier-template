@@ -14,6 +14,7 @@ _skip_if_exists:
   - odoo/custom/src/private/*/
   - odoo/custom/src/repos.yaml
   - odoo/custom/ssh/*
+  - odooclaw/config/config.json
 
 _tasks:
   - invoke after-update
@@ -95,6 +96,14 @@ _migrations:
         - "{{ _copier_conf.answers_file }}"
         - "9.6.0"
         - "--varname=whitelisted_hosts_test"
+  - version: v10.0.0
+    before:
+      - - invoke
+        - --search-root={{ _copier_conf.src_path }}
+        - --collection=migrations
+        - add-odooclaw
+        - "{{ _copier_conf.dst_path }}"
+        - "{{ _copier_conf.answers_file }}"
 
 # Questions for the user
 odoo_version:
@@ -238,6 +247,21 @@ use_refurb:
     Use refurb (https://github.com/dosisod/refurb) for refurbishing and modernizing
     Python codebase.
   when: "{{ odoo_version >= 13.0 }}"
+
+use_odooclaw:
+  default: false
+  type: bool
+  help: >-
+    Use OdooClaw (https://github.com/nicolasramos/odooclaw), an AI agent
+    framework that integrates with Odoo via XML-RPC and MCP.
+
+    It adds an odooclaw service (Docker image) and a Redis instance to your
+    stack, plus the mail_bot_odooclaw module from
+    https://github.com/nicolasramos/odoo-addons.
+
+    💡 You need an API key for the LLM provider (OpenAI, Anthropic, etc.)
+    to use OdooClaw.
+  when: "{{ odoo_version >= 16.0 and odoo_version <= 18.0 }}"
 
 gitlab_url:
   type: str
