@@ -20,8 +20,8 @@ When `use_odooclaw=true` is answered during `copier copy`, the template adds:
   - `smoke-test-odooclaw.sh` — basic health check for the gateway.
 - A `repos.yaml` entry for `nicolasramos/odoo-addons`, which fetches the
   `mail_bot_odooclaw` Odoo module from the matching `{{ odoo_version }}` branch.
-- Extra environment variables under `.docker/odoo.env` (DB name, admin
-  password, webhook port, redis URL, job store backend).
+- Extra environment variables under `.docker/odoo.env` (DB name, deterministic
+  Odoo target DB/filter, admin password, webhook port, redis URL, job store backend).
 
 ## Requirements
 
@@ -39,8 +39,10 @@ When `use_odooclaw=true` is answered during `copier copy`, the template adds:
 
 1. Review `.docker/odoo.env` and fill in your API keys. The template adds the
    OdooClaw env block at the bottom of the file; it is safe to leave the
-   default database name and admin password that come from the
-   `.copier-answers.yml` values.
+   default production database name, DB filter, target DB and admin password
+   that come from the `.copier-answers.yml` values. In development, the
+   `devel.yaml` service overrides the target database to `devel` so OdooClaw
+   talks to the same DB as the local Odoo service.
 2. Run `invoke start` (or `docker compose up -d`) to bring the stack up.
 3. Optionally run `scripts/smoke-test-odooclaw.sh` to confirm the gateway is
    reachable on port `18790`.
@@ -56,7 +58,10 @@ version of this template, run `copier update`. The migration in
 - Append the OdooClaw env block to `.docker/odoo.env`.
 
 The inline service definitions in `devel.yaml` and `prod.yaml` are
-re-rendered automatically on the next `copier update`.
+re-rendered by Copier on update when those files can be updated cleanly. If
+your project has heavily customized compose files and Copier reports a
+conflict, keep your local changes and copy the generated `odooclaw`/`redis`
+service blocks manually from a fresh render for the same Odoo version.
 
 ## Notes for production
 

@@ -58,13 +58,23 @@ def test_odooclaw_enabled_by_version(
         assert config_json_path.exists()
         with open(config_json_path) as f:
             config_data = json.load(f)
-        assert (
-            config_data["agents"]["defaults"]["model_name"]
-            == "${ODOOCLAW_AGENTS_DEFAULTS_MODEL_NAME:-gpt-4o-mini}"
-        )
+        assert config_data["agents"]["defaults"]["model_name"] == "gpt-4o-mini"
+
+        devel_env = devel_data["services"]["odooclaw"]["environment"]
+        assert devel_env["ODOO_DB"] == "devel"
+        assert devel_env["ODOOCLAW_CHANNELS_ODOO_TARGET_DB"] == "devel"
+        assert devel_env["ODOO_DBFILTER"] == "^devel"
+
+        prod_env = prod_data["services"]["odooclaw"]["environment"]
+        assert prod_env["ODOO_DB"] == "prod"
+        assert prod_env["ODOOCLAW_CHANNELS_ODOO_TARGET_DB"] == "prod"
+        assert prod_env["ODOO_DBFILTER"] == "^prod"
 
         assert env_path.exists()
-        assert "ODOOCLAW_CHANNELS_ODOO_ENABLED=true" in env_path.read_text()
+        env_text = env_path.read_text()
+        assert "ODOOCLAW_CHANNELS_ODOO_ENABLED=true" in env_text
+        assert "ODOOCLAW_CHANNELS_ODOO_TARGET_DB=prod" in env_text
+        assert "ODOO_DBFILTER=^prod" in env_text
 
         assert repos_path.exists()
         with open(repos_path) as f:

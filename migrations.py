@@ -319,6 +319,7 @@ def add_odooclaw(c, dst_path, answers_rel_path):
 
     # Pull real values from answers file (no hardcoded defaults)
     pg_dbname = answers_data.get("postgres_dbname", "devel")
+    db_filter = answers_data.get("odoo_dbfilter", f"^{pg_dbname}")
     admin_password = answers_data.get("odoo_admin_password", "admin")
 
     # 3. Add odoo-addons to repos.yaml
@@ -393,6 +394,8 @@ def add_odooclaw(c, dst_path, answers_rel_path):
         if "ODOOCLAW_CHANNELS_ODOO_ENABLED" not in content:
             content += "\n# OdooClaw\n"
             content += f"ODOO_DB={pg_dbname}\n"
+            content += f"ODOOCLAW_CHANNELS_ODOO_TARGET_DB={pg_dbname}\n"
+            content += f"ODOO_DBFILTER={db_filter}\n"
             content += "ODOO_USERNAME=admin\n"
             content += f"ODOO_PASSWORD={admin_password}\n"
             content += "ODOOCLAW_CHANNELS_ODOO_ENABLED=true\n"
