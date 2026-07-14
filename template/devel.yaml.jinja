@@ -141,7 +141,7 @@ services:
       - .docker/odoo.env
     environment:
       ODOO_URL: http://odoo:8069
-      ODOO_DB: ${ODOO_DB:-devel}
+      ODOO_DB: {{ postgres_dbname or 'devel' }}
       ODOO_USERNAME: ${ODOO_USERNAME:-admin}
       ODOO_PASSWORD: ${ODOO_PASSWORD:-admin}
       HTTP_PROXY: ""

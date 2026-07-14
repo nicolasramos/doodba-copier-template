@@ -3,6 +3,7 @@
 This file is executed through invoke by copier when updating child projects.
 """
 
+import json
 import re
 import shutil
 from pathlib import Path
@@ -304,9 +305,9 @@ def add_new_domains(
 def add_odooclaw(c, dst_path, answers_rel_path):
     """Migration task: add OdooClaw files to an existing project on copier update."""
     dst = Path(dst_path)
-    answers = Path(answers_rel_path)
+    answers = dst / answers_rel_path
     if not answers.exists():
-        print("Answers file not found, skipping OdooClaw migration.")
+        print(f"Answers file not found at {answers}, skipping OdooClaw migration.")
         return
 
     with open(answers) as f:
@@ -315,6 +316,10 @@ def add_odooclaw(c, dst_path, answers_rel_path):
     if not answers_data.get("use_odooclaw"):
         print("use_odooclaw is not enabled, skipping OdooClaw migration.")
         return
+
+    # Pull real values from answers file (no hardcoded defaults)
+    pg_dbname = answers_data.get("postgres_dbname", "devel")
+    admin_password = answers_data.get("odoo_admin_password", "admin")
 
     # 3. Add odoo-addons to repos.yaml
     repos_file = dst / "odoo" / "custom" / "src" / "repos.yaml"
@@ -342,7 +347,7 @@ def add_odooclaw(c, dst_path, answers_rel_path):
                 "defaults": {
                     "workspace": "~/.odooclaw/workspace",
                     "restrict_to_workspace": True,
-                    "model_name": "${ODOOCLAW_AGENTS_DEFAULTS_MODEL_NAME:-gpt-4o-mini}",
+                    "model_name": "gpt-4o-mini",
                     "max_tokens": 8192,
                     "temperature": 0.7,
                     "max_tool_iterations": 20,
@@ -376,7 +381,6 @@ def add_odooclaw(c, dst_path, answers_rel_path):
                 "port": 18790,
             },
         }
-        import json
 
         with open(config_file, "w") as f:
             json.dump(config_content, f, indent=2)
@@ -388,9 +392,9 @@ def add_odooclaw(c, dst_path, answers_rel_path):
         content = env_file.read_text()
         if "ODOOCLAW_CHANNELS_ODOO_ENABLED" not in content:
             content += "\n# OdooClaw\n"
-            content += "ODOO_DB=devel\n"
+            content += f"ODOO_DB={pg_dbname}\n"
             content += "ODOO_USERNAME=admin\n"
-            content += "ODOO_PASSWORD=admin\n"
+            content += f"ODOO_PASSWORD={admin_password}\n"
             content += "ODOOCLAW_CHANNELS_ODOO_ENABLED=true\n"
             content += "ODOOCLAW_CHANNELS_ODOO_WEBHOOK_HOST=0.0.0.0\n"
             content += "ODOOCLAW_CHANNELS_ODOO_WEBHOOK_PORT=18790\n"
@@ -400,4 +404,8 @@ def add_odooclaw(c, dst_path, answers_rel_path):
             env_file.write_text(content)
             print("Added OdooClaw env vars to .docker/odoo.env")
 
+    # Note: devel.yaml and prod.yaml now include the odooclaw service inline
+    # (not via a separate odooclaw.yaml include). For projects being updated from
+    # an older version, the inline service block is added on the next copier
+    # update that re-renders those files; no manual patching is required.
     print("OdooClaw migration completed.")

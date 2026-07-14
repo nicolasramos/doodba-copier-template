@@ -18,7 +18,10 @@ def test_default_settings(
         run_copy(
             ".",
             str(tmp_path),
-            data={"odoo_version": supported_odoo_version},
+            data={
+                "odoo_version": supported_odoo_version,
+                "use_odooclaw": False,
+            },
             vcs_ref="test",
             defaults=True,
             overwrite=True,
