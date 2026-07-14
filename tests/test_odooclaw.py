@@ -59,6 +59,9 @@ def test_odooclaw_enabled_by_version(
         with open(config_json_path) as f:
             config_data = json.load(f)
         assert config_data["agents"]["defaults"]["model_name"] == "gpt-4o-mini"
+        # Verify MCP server env entries don't contain unexpanded ${VAR} syntax
+        config_str = json.dumps(config_data)
+        assert "${" not in config_str, "config.json contains unexpanded ${VAR} syntax"
 
         devel_env = devel_data["services"]["odooclaw"]["environment"]
         assert devel_env["ODOO_DB"] == "devel"

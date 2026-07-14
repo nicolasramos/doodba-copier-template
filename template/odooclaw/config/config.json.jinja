@@ -37,12 +37,7 @@
           "command": "whisper-stt-mcp.py",
           "args": [],
           "env": {
-            "PYTHONUNBUFFERED": "1",
-            "OPENAI_API_KEY": "${OPENAI_API_KEY}",
-            "STT_PROVIDER": "${STT_PROVIDER}",
-            "STT_API_BASE": "${STT_API_BASE}",
-            "STT_API_KEY": "${STT_API_KEY}",
-            "STT_OPENAI_MODEL": "${STT_OPENAI_MODEL}"
+            "PYTHONUNBUFFERED": "1"
           }
         },
         "edge-tts": {
@@ -59,9 +54,7 @@
           "args": [],
           "env": {
             "PYTHONUNBUFFERED": "1",
-            "VISION_API_BASE": "${OPENAI_API_BASE}",
             "VISION_MODEL": "gpt-4o-mini",
-            "OPENAI_API_KEY": "${OPENAI_API_KEY}",
             "OCR_TIMEOUT_SECONDS": "240",
             "OCR_MAX_PAGES": "4",
             "OCR_IMAGE_DPI": "170"
@@ -72,8 +65,7 @@
           "command": "rlm-utils-mcp.py",
           "args": [],
           "env": {
-            "PYTHONUNBUFFERED": "1",
-            "WORKSPACE_PATH": "${ODOOCLAW_WORKSPACE_PATH}"
+            "PYTHONUNBUFFERED": "1"
           }
         }
       }
