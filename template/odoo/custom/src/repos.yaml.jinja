@@ -14,7 +14,7 @@
     - ocb $ODOO_VERSION
     # Example of a merge of the PR with the number <PR>
     # - oca refs/pull/<PR>/head
-{% if use_odooclaw %}
+{% if use_odooclaw and odoo_version >= 16.0 and odoo_version <= 18.0 %}
 ./odoo-addons:
   defaults:
     depth: $DEPTH_DEFAULT

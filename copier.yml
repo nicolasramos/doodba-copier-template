@@ -252,15 +252,14 @@ use_odooclaw:
   default: false
   type: bool
   help: >-
-    Use OdooClaw (https://github.com/nicolasramos/odooclaw), an AI agent
-    framework that integrates with Odoo via XML-RPC and MCP.
+    Use OdooClaw (https://github.com/nicolasramos/odooclaw), an AI agent framework that
+    integrates with Odoo via XML-RPC and MCP.
 
-    It adds an odooclaw service (Docker image) and a Redis instance to your
-    stack, plus the mail_bot_odooclaw module from
-    https://github.com/nicolasramos/odoo-addons.
+    It adds an odooclaw service (Docker image) and a Redis instance to your stack, plus
+    the mail_bot_odooclaw module from https://github.com/nicolasramos/odoo-addons.
 
-    💡 You need an API key for the LLM provider (OpenAI, Anthropic, etc.)
-    to use OdooClaw.
+    💡 You need an API key for the LLM provider (OpenAI, Anthropic, etc.) to use
+    OdooClaw.
   when: "{{ odoo_version >= 16.0 and odoo_version <= 18.0 }}"
 
 gitlab_url:

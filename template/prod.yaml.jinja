@@ -10,10 +10,6 @@
 version: "2.4"
 
 {% endif %}
-{% if use_odooclaw %}
-include:
-  - odooclaw.yaml
-{% endif %}
 services:
   odoo:
     extends:
@@ -158,6 +154,50 @@ services:
       {%- endif %}
   {%- endif %}
 
+  {% if use_odooclaw and odoo_version >= 16.0 and odoo_version <= 18.0 -%}
+  odooclaw:
+    image: docker.io/nicolasramos/odooclaw:latest
+    restart: unless-stopped
+    env_file:
+      - .docker/odoo.env
+    environment:
+      ODOO_URL: http://odoo:8069
+      ODOO_DB: ${ODOO_DB:-devel}
+      ODOO_USERNAME: ${ODOO_USERNAME:-admin}
+      ODOO_PASSWORD: ${ODOO_PASSWORD:-admin}
+      HTTP_PROXY: ""
+      HTTPS_PROXY: ""
+      ALL_PROXY: ""
+      NO_PROXY: "localhost,127.0.0.1,odoo,redis,db"
+      ODOOCLAW_AGENTS_DEFAULTS_PROVIDER: ${ODOOCLAW_AGENTS_DEFAULTS_PROVIDER:-openai}
+      ODOOCLAW_AGENTS_DEFAULTS_MODEL: ${ODOOCLAW_AGENTS_DEFAULTS_MODEL:-gpt-4o-mini}
+      ODOOCLAW_PROVIDERS_OPENAI_API_KEY: ${OPENAI_API_KEY}
+      ODOOCLAW_PROVIDERS_OPENAI_API_BASE: ${OPENAI_API_BASE:-https://api.openai.com/v1}
+      ODOOCLAW_CHANNELS_ODOO_ENABLED: "true"
+      ODOOCLAW_CHANNELS_ODOO_WEBHOOK_HOST: 0.0.0.0
+      ODOOCLAW_CHANNELS_ODOO_WEBHOOK_PORT: 18790
+      ODOOCLAW_CHANNELS_ODOO_WEBHOOK_PATH: /webhook/odoo
+      ODOOCLAW_REDIS_URL: redis://redis:6379/0
+      ODOOCLAW_JOB_STORE: odoo
+    ports:
+      - "18790:18790"
+    volumes:
+      - odooclaw_data:/home/odooclaw/.odooclaw
+      - ./odooclaw/config/config.json:/home/odooclaw/.odooclaw/config.json:ro
+    depends_on:
+      - odoo
+      - redis
+    networks:
+      - default
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    networks:
+      - default
+  {% endif %}
+
 networks:
   default:
     driver_opts:
@@ -180,4 +220,7 @@ volumes:
   maillogs:
   maillogssupervisord:
   mailstate:
+  {%- endif %}
+  {%- if use_odooclaw and odoo_version >= 16.0 and odoo_version <= 18.0 %}
+  odooclaw_data:
   {%- endif %}

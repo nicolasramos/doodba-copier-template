@@ -316,47 +316,6 @@ def add_odooclaw(c, dst_path, answers_rel_path):
         print("use_odooclaw is not enabled, skipping OdooClaw migration.")
         return
 
-    # 1. Add include to devel.yaml
-    devel_file = dst / "devel.yaml"
-    if devel_file.exists():
-        content = devel_file.read_text()
-        if "include:" not in content:
-            content = "include:\n  - odooclaw.yaml\n\n" + content
-            devel_file.write_text(content)
-            print("Added include: odooclaw.yaml to devel.yaml")
-        elif "- odooclaw.yaml" not in content:
-            # Add to existing include block
-            lines = content.split("\n")
-            new_lines = []
-            added = False
-            for line in lines:
-                new_lines.append(line)
-                if line.strip().startswith("include:") and not added:
-                    new_lines.append("  - odooclaw.yaml")
-                    added = True
-            devel_file.write_text("\n".join(new_lines))
-            print("Added odooclaw.yaml to existing include in devel.yaml")
-
-    # 2. Add include to prod.yaml
-    prod_file = dst / "prod.yaml"
-    if prod_file.exists():
-        content = prod_file.read_text()
-        if "include:" not in content:
-            content = "include:\n  - odooclaw.yaml\n\n" + content
-            prod_file.write_text(content)
-            print("Added include: odooclaw.yaml to prod.yaml")
-        elif "- odooclaw.yaml" not in content:
-            lines = content.split("\n")
-            new_lines = []
-            added = False
-            for line in lines:
-                new_lines.append(line)
-                if line.strip().startswith("include:") and not added:
-                    new_lines.append("  - odooclaw.yaml")
-                    added = True
-            prod_file.write_text("\n".join(new_lines))
-            print("Added odooclaw.yaml to existing include in prod.yaml")
-
     # 3. Add odoo-addons to repos.yaml
     repos_file = dst / "odoo" / "custom" / "src" / "repos.yaml"
     if repos_file.exists():
@@ -417,8 +376,10 @@ def add_odooclaw(c, dst_path, answers_rel_path):
                 "port": 18790,
             },
         }
+        import json
+
         with open(config_file, "w") as f:
-            yaml.safe_dump(config_content, f)
+            json.dump(config_content, f, indent=2)
         print("Created odooclaw/config/config.json")
 
     # 5. Add OdooClaw env vars to .docker/odoo.env if not present

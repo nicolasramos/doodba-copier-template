@@ -56,15 +56,21 @@ ODOO_VERSION = float(
 # Depending on the user's docker version either version of docker compose could not
 # be available. We default to v2 and fallback to v1.
 
-docker_compose_v2 = (
-    subprocess.run([shutil.which("docker"), "compose"], capture_output=True).returncode
-    == 0
-)
-DOCKER_COMPOSE_CMD = (
-    f"{shutil.which('docker')} compose"
-    if docker_compose_v2
-    else shutil.which("docker-compose")
-)
+docker_bin = shutil.which("docker")
+docker_compose_v2 = False
+if docker_bin:
+    try:
+        docker_compose_v2 = (
+            subprocess.run([docker_bin, "compose"], capture_output=True).returncode == 0
+        )
+    except Exception:
+        pass
+
+docker_compose_cmd = shutil.which("docker-compose")
+if docker_bin and docker_compose_v2:
+    DOCKER_COMPOSE_CMD = f"{docker_bin} compose"
+else:
+    DOCKER_COMPOSE_CMD = docker_compose_cmd or "docker-compose"
 
 _logger = getLogger(__name__)
 
@@ -1265,6 +1271,42 @@ def after_update(c):
             # Python 3.8
             if script_file.exists():
                 script_file.unlink()
+
+    # OdooClaw clean up or permission setup
+    answers_file = PROJECT_ROOT / ".copier-answers.yml"
+    use_odooclaw = False
+    if answers_file.exists():
+        try:
+            with open(answers_file) as fd:
+                answers = yaml.safe_load(fd.read())
+                use_odooclaw = answers.get("use_odooclaw", False)
+        except Exception:
+            pass
+
+    if not use_odooclaw:
+        # Clean up odooclaw config
+        config_json = PROJECT_ROOT / "odooclaw" / "config" / "config.json"
+        if config_json.exists():
+            config_json.unlink()
+        config_dir = PROJECT_ROOT / "odooclaw" / "config"
+        if config_dir.exists() and not any(config_dir.iterdir()):
+            config_dir.rmdir()
+        odooclaw_dir = PROJECT_ROOT / "odooclaw"
+        if odooclaw_dir.exists() and not any(odooclaw_dir.iterdir()):
+            odooclaw_dir.rmdir()
+
+        # Clean up scripts
+        for script_name in ("setup-odooclaw.sh", "smoke-test-odooclaw.sh"):
+            script_file = PROJECT_ROOT / "scripts" / script_name
+            if script_file.exists():
+                script_file.unlink()
+    else:
+        # Make scripts executable
+        for script_name in ("setup-odooclaw.sh", "smoke-test-odooclaw.sh"):
+            script_file = PROJECT_ROOT / "scripts" / script_name
+            if script_file.exists():
+                cur_stat = script_file.stat()
+                script_file.chmod(cur_stat.st_mode | stat.S_IXUSR | stat.S_IXGRP)
 
 
 @task(
