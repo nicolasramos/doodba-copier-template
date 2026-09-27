@@ -1345,10 +1345,12 @@ def reconcile_odooclaw_files():
             if "# BEGIN odooclaw" in text:
                 continue  # Already reconciled.
             path.write_text(text.rstrip("\n") + "\n" + block)
-            print(f"Added OdooClaw entries to {path.relative_to(PROJECT_ROOT)}.")
+            _logger.info(f"Added OdooClaw entries to {path.relative_to(PROJECT_ROOT)}.")
         elif "# BEGIN odooclaw" in text:
             path.write_text(_strip_odooclaw_block(text))
-            print(f"Removed OdooClaw entries from {path.relative_to(PROJECT_ROOT)}.")
+            _logger.info(
+                f"Removed OdooClaw entries from {path.relative_to(PROJECT_ROOT)}."
+            )
 
     if not enabled:
         leftovers = [
@@ -1356,9 +1358,9 @@ def reconcile_odooclaw_files():
         ]
         for rel in leftovers:
             (PROJECT_ROOT / rel).unlink()
-            print(f"Removed {rel} (use_odooclaw is now false).")
+            _logger.info(f"Removed {rel} (use_odooclaw is now false).")
         if leftovers or (PROJECT_ROOT / "odooclaw").exists():
-            print(
+            _logger.warning(
                 "⚠️  OdooClaw was disabled. Review and delete by hand if not "
                 "needed: odooclaw/ (gateway source clone) and the OdooClaw "
                 "block in .docker/odooclaw.env (may contain secrets)."
