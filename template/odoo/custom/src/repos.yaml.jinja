@@ -16,6 +16,7 @@
     # - oca refs/pull/<PR>/head
 {%- if use_odooclaw %}
 
+# BEGIN odooclaw (managed block; do not edit inside the markers)
 # OdooClaw Odoo modules (mail_bot_odooclaw and area addons). The upstream repo
 # has one branch per Odoo version, so $ODOO_VERSION is also the branch name.
 ./odoo-addons:
@@ -26,4 +27,5 @@
   target: odooclaw $ODOO_VERSION
   merges:
     - odooclaw $ODOO_VERSION
+# END odooclaw
 {%- endif %}

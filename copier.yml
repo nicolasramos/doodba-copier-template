@@ -95,14 +95,6 @@ _migrations:
         - "{{ _copier_conf.answers_file }}"
         - "9.6.0"
         - "--varname=whitelisted_hosts_test"
-  - version: v10.1.0
-    after:
-      - - invoke
-        - --search-root={{ _copier_conf.src_path }}
-        - --collection=migrations
-        - toggle-odooclaw
-        - "{{ _copier_conf.dst_path }}"
-        - "{{ _copier_conf.answers_file }}"
 pg_per_odoo:
   when: False
   type: yaml

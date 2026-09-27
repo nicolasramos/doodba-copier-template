@@ -1,4 +1,5 @@
 {%- if use_odooclaw %}
+# BEGIN odooclaw (managed block; do not edit inside the markers)
 odoo-addons:
 {%- if odoo_version >= 18.0 %}
     - mail_bot_odooclaw
@@ -9,4 +10,5 @@ odoo-addons:
 {%- else %}
     - mail_bot_odooclaw
 {%- endif %}
+# END odooclaw
 {%- endif %}
