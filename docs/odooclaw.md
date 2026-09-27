@@ -89,9 +89,9 @@ copier copy --defaults -d odooclaw_provider=ollama -d odooclaw_model=llama3 . <n
 ## Disabling
 
 Set `use_odooclaw: false` in `.copier-answers.yml` and run `copier update`. The
-migration removes the generated OdooClaw files and services. Your `odooclaw/` gateway
-clone and local secrets in `.docker/odooclaw.env` are left untouched for you to review
-and delete.
+after-update task strips the OdooClaw blocks from `repos.yaml`/`addons.yaml` and removes
+the generated scripts and config. Your `odooclaw/` gateway clone and local secrets in
+`.docker/odooclaw.env` are left untouched for you to review and delete.
 
 ## Docs
 
