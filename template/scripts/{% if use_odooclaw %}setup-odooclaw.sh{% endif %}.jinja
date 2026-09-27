@@ -1,0 +1,42 @@
+#!/bin/bash
+# Bootstrap OdooClaw in a generated Doodba project (use_odooclaw=true).
+#
+# Clones the OdooClaw gateway source into ./odooclaw (the docker compose build
+# context referenced by the odooclaw service). Safe to re-run: it updates the
+# existing clone instead of failing.
+set -euo pipefail
+
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ODOOCLAW_DIR="$PROJECT_ROOT/odooclaw"
+ODOOCLAW_REPO="https://github.com/nicolasramos/odooclaw.git"
+
+if [ ! -d "$ODOOCLAW_DIR/.git" ]; then
+    echo ">> Cloning OdooClaw gateway source into $ODOOCLAW_DIR ..."
+    git clone --depth 1 "$ODOOCLAW_REPO" "$ODOOCLAW_DIR"
+else
+    echo ">> Updating existing OdooClaw clone in $ODOOCLAW_DIR ..."
+    git -C "$ODOOCLAW_DIR" pull --ff-only
+fi
+
+if [ ! -f "$ODOOCLAW_DIR/docker/Dockerfile" ]; then
+    echo "!! $ODOOCLAW_DIR does not look like the OdooClaw gateway repo." >&2
+    exit 1
+fi
+
+if [ ! -f "$PROJECT_ROOT/odooclaw/config/config.json" ]; then
+    echo "!! odooclaw/config/config.json is missing. Re-run 'copier copy' or restore it." >&2
+    exit 1
+fi
+
+if ! grep -q "ODOOCLAW_ODOO_PASSWORD=..*" "$PROJECT_ROOT/.docker/odooclaw.env" 2>/dev/null; then
+    echo ">> WARNING: ODOOCLAW_ODOO_PASSWORD is empty in .docker/odooclaw.env."
+    echo "   Set it (plus ODOOCLAW_LLM_API_KEY for your provider) before starting the stack."
+fi
+
+echo ""
+echo "OdooClaw bootstrap completed."
+echo "Next steps:"
+echo "  1) Set secrets in .docker/odooclaw.env (ODOOCLAW_LLM_API_KEY, ODOOCLAW_ODOO_PASSWORD)."
+echo "  2) Build and start: docker compose -f devel.yaml build odooclaw && docker compose -f devel.yaml up -d"
+echo "  3) Install the mail_bot_odooclaw module in Odoo (Apps -> search 'OdooClaw')."
+echo "  4) Verify: scripts/smoke-test-odooclaw.sh"

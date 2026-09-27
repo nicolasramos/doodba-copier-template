@@ -14,3 +14,16 @@
     - ocb $ODOO_VERSION
     # Example of a merge of the PR with the number <PR>
     # - oca refs/pull/<PR>/head
+{%- if use_odooclaw %}
+
+# OdooClaw Odoo modules (mail_bot_odooclaw and area addons). The upstream repo
+# has one branch per Odoo version, so $ODOO_VERSION is also the branch name.
+./odoo-addons:
+  defaults:
+    depth: $DEPTH_DEFAULT
+  remotes:
+    odooclaw: https://github.com/nicolasramos/odoo-addons.git
+  target: odooclaw $ODOO_VERSION
+  merges:
+    - odooclaw $ODOO_VERSION
+{%- endif %}

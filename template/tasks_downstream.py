@@ -1277,6 +1277,13 @@ def after_update(c):
             # Python 3.8
             if script_file.exists():
                 script_file.unlink()
+    # Make generated OdooClaw scripts executable (if this project enabled them)
+    for script_name in ("setup-odooclaw.sh", "smoke-test-odooclaw.sh"):
+        script_file = Path(PROJECT_ROOT, "scripts", script_name)
+        if script_file.exists():
+            cur_stat = script_file.stat()
+            # Like chmod ug+x
+            script_file.chmod(cur_stat.st_mode | stat.S_IXUSR | stat.S_IXGRP)
 
 
 @task(
