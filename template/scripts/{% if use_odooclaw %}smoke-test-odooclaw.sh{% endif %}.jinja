@@ -8,7 +8,9 @@ set -uo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 COMPOSE_FILE="${1:-$PROJECT_ROOT/devel.yaml}"
-HEALTH_URL="${ODOOCLAW_HEALTH_URL:-http://127.0.0.1:18790/health}"
+# Host port follows the devel.yaml mapping: ${PORT_PREFIX:-<major>}990 -> 18790
+ODOOCLAW_HOST_PORT="${ODOOCLAW_HOST_PORT:-${PORT_PREFIX:-{{- "%.0f"|format(odoo_version) -}} }990}"
+HEALTH_URL="${ODOOCLAW_HEALTH_URL:-http://127.0.0.1:${ODOOCLAW_HOST_PORT}/health}"
 
 cd "$PROJECT_ROOT"
 
