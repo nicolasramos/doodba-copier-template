@@ -1248,6 +1248,17 @@ def logs(c, tail=10, follow=True, container=None):
         c.run(cmd, pty=True)
 
 
+def _copier_answers():
+    """Read the copier answers file of this generated project, if available."""
+    answers_file = PROJECT_ROOT / ".copier-answers.yml"
+    if not answers_file.is_file():
+        return {}
+    try:
+        return yaml.safe_load(answers_file.read_text()) or {}
+    except yaml.YAMLError:
+        return {}
+
+
 @task
 def after_update(c):
     """Execute some actions after a copier update or init"""
@@ -1278,12 +1289,13 @@ def after_update(c):
             if script_file.exists():
                 script_file.unlink()
     # Make generated OdooClaw scripts executable (if this project enabled them)
-    for script_name in ("setup-odooclaw.sh", "smoke-test-odooclaw.sh"):
-        script_file = Path(PROJECT_ROOT, "scripts", script_name)
-        if script_file.exists():
-            cur_stat = script_file.stat()
-            # Like chmod ug+x
-            script_file.chmod(cur_stat.st_mode | stat.S_IXUSR | stat.S_IXGRP)
+    if _copier_answers().get("use_odooclaw"):
+        for script_name in ("setup-odooclaw.sh", "smoke-test-odooclaw.sh"):
+            script_file = Path(PROJECT_ROOT, "scripts", script_name)
+            if script_file.exists():
+                cur_stat = script_file.stat()
+                # Like chmod ug+x
+                script_file.chmod(cur_stat.st_mode | stat.S_IXUSR | stat.S_IXGRP)
 
 
 @task(
