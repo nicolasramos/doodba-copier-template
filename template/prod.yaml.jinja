@@ -153,7 +153,7 @@ services:
       - smtp
       {%- endif %}
   {%- endif %}
-  {%- if use_odooclaw %}
+  {%- if use_odooclaw and 16.0 <= odoo_version <= 18.0 %}
 
   odooclaw:
     build:
@@ -200,7 +200,7 @@ volumes:
   {%- endif %}
   filestore:
   db:
-  {%- if use_odooclaw %}
+  {%- if use_odooclaw and 16.0 <= odoo_version <= 18.0 %}
   odooclaw_data:
   {%- endif %}
   {%- if smtp_relay_host %}

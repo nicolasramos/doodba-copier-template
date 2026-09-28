@@ -155,7 +155,7 @@ services:
       - "127.0.0.1:${PORT_PREFIX:-{{ macros.version_major(odoo_version) -}} }984:1984"
     # HACK https://github.com/Kozea/wdb/issues/136
     init: true
-{%- if use_odooclaw %}
+{%- if use_odooclaw and 16.0 <= odoo_version <= 18.0 %}
 
   odooclaw:
     build:
@@ -191,6 +191,6 @@ networks:
 volumes:
   filestore:
   db:
-{%- if use_odooclaw %}
+{%- if use_odooclaw and 16.0 <= odoo_version <= 18.0 %}
   odooclaw_data:
 {%- endif %}

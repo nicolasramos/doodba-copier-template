@@ -195,6 +195,32 @@ class TestOdooclawVersions:
         with local.cwd(project):
             docker("compose", "-f", "common.yaml", "-f", "devel.yaml", "config", "-q")
 
+    def test_not_applied_outside_the_supported_versions(
+        self, cloned_template, tmp_path
+    ):
+        """Outside 16-18 OdooClaw must not be applied, even if forced."""
+        # copier.yml hides the question, so a normal render never sets it. This
+        # simulates the other way in: an answers file carried over from a project
+        # generated on a supported version and later updated to an unsupported
+        # one. The answer must not half-apply — leaving the compose services
+        # pointing at a build context that is no longer generated — so every
+        # piece has to agree.
+        project = _render(
+            cloned_template,
+            tmp_path / "unsupported",
+            odoo_version=19.0,
+            use_odooclaw=True,
+        )
+        devel = (project / "devel.yaml").read_text()
+        prod = (project / "prod.yaml").read_text()
+        addons = (project / "odoo/custom/src/addons.yaml").read_text()
+        repos = (project / "odoo/custom/src/repos.yaml").read_text()
+        assert "odooclaw" not in devel
+        assert "odooclaw" not in prod
+        assert "mail_bot_odooclaw" not in addons
+        assert "odoo-addons" not in repos
+        assert not (project / "odooclaw").exists()
+
 
 class TestOdooclawBootstrap:
     """`scripts/setup-odooclaw.sh` must really produce compose's build context.

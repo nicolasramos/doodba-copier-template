@@ -14,7 +14,7 @@
     - ocb $ODOO_VERSION
     # Example of a merge of the PR with the number <PR>
     # - oca refs/pull/<PR>/head
-{%- if use_odooclaw %}
+{%- if use_odooclaw and 16.0 <= odoo_version <= 18.0 %}
 
 # BEGIN odooclaw (managed block; do not edit inside the markers)
 # OdooClaw Odoo modules (mail_bot_odooclaw and area addons). The upstream repo
