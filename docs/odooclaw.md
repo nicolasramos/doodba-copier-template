@@ -20,14 +20,14 @@ answers `@OdooClaw` mentions in Odoo Discuss — into your Doodba stack.
 
 ## What was generated
 
-| Piece                                  | Where                                                                                 |
-| -------------------------------------- | ------------------------------------------------------------------------------------- |
-| Gateway source (compose build context) | `odooclaw/` (populated by `scripts/setup-odooclaw.sh`)                                |
-| Gateway config                         | `odooclaw/config/config.json`                                                         |
-| Secrets/env                            | `.docker/odooclaw.env`                                                                |
-| Compose services (`odooclaw`, `redis`) | inline in `devel.yaml` / `prod.yaml`                                                  |
-| Odoo module repo                       | `odoo/custom/src/repos.yaml` (`nicolasramos/odoo-addons`, branch = your Odoo version) |
-| Bootstrap / smoke test                 | `scripts/setup-odooclaw.sh`, `scripts/smoke-test-odooclaw.sh`                         |
+| Piece                                  | Where                                                                                    |
+| -------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Gateway source (compose build context) | `odooclaw/` (populated by `scripts/setup-odooclaw.sh`; only `config/` is tracked by git) |
+| Gateway config                         | `odooclaw/config/config.json`                                                            |
+| Secrets/env                            | `.docker/odooclaw.env`                                                                   |
+| Compose services (`odooclaw`, `redis`) | inline in `devel.yaml` / `prod.yaml`                                                     |
+| Odoo module repo                       | `odoo/custom/src/repos.yaml` (`nicolasramos/odoo-addons`, branch = your Odoo version)    |
+| Bootstrap / smoke test                 | `scripts/setup-odooclaw.sh`, `scripts/smoke-test-odooclaw.sh`                            |
 
 ## First-time setup
 
@@ -40,10 +40,18 @@ answers `@OdooClaw` mentions in Odoo Discuss — into your Doodba stack.
 
 2. **Set secrets** in `.docker/odooclaw.env` (never commit this file):
 
-   - `ODOOCLAW_LLM_API_KEY` — your provider API key (not needed for a keyless local
-     Ollama).
-   - `ODOOCLAW_ODOO_USERNAME` / `ODOOCLAW_ODOO_PASSWORD` — an Odoo user the `odoo-mcp`
-     tools can use. A dedicated technical user is recommended.
+   - `ODOOCLAW_PROVIDERS_<PROVIDER>_API_KEY` — your provider API key (leave it empty for
+     a keyless local Ollama).
+   - `ODOO_USERNAME` / `ODOO_PASSWORD` — an Odoo user the `odoo-mcp` tools can use. It
+     ships as `admin` + Doodba's `odoo_admin_password`; a dedicated technical user is
+     recommended for anything beyond a local try-out (see
+     [ODOO_TECHNICAL_USER.md](https://github.com/nicolasramos/odooclaw/blob/main/odooclaw/docs/ODOO_TECHNICAL_USER.md)).
+
+   ⚠️ Write every value **literally** in that file. Docker compose reads an `env_file`
+   verbatim: a `${VAR}` reference inside it is resolved from your shell or from the
+   project `.env`, never from the file itself, so something like
+   `ODOOCLAW_PROVIDERS_OPENAI_API_KEY=${ODOOCLAW_LLM_API_KEY:-}` silently ends up empty
+   and the agent never answers.
 
 3. **Start the stack**:
 
@@ -90,8 +98,17 @@ copier copy --defaults -d odooclaw_provider=ollama -d odooclaw_model=llama3 . <n
 
 Set `use_odooclaw: false` in `.copier-answers.yml` and run `copier update`. The
 after-update task strips the OdooClaw blocks from `repos.yaml`/`addons.yaml` and removes
-the generated scripts and config. Your `odooclaw/` gateway clone and local secrets in
-`.docker/odooclaw.env` are left untouched for you to review and delete.
+the generated scripts plus `odooclaw/config/config.json` and `odooclaw/.gitignore`.
+
+Before running it, two things copier itself does with the files it stops generating:
+
+- **`.docker/odooclaw.env` is deleted** (copier removes whatever it generated and no
+  longer generates). Copy it aside first if you want to keep your API key and
+  credentials — nothing else in the project holds them.
+- **`odooclaw/` is deleted too** when it only holds copier-generated files. If you ran
+  `scripts/setup-odooclaw.sh`, the fetched gateway source is _not_ managed by copier and
+  stays behind: delete `odooclaw/` yourself once you are sure you do not need the build
+  context any more.
 
 ## Docs
 

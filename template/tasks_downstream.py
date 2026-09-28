@@ -1288,6 +1288,7 @@ _ODOOCLAW_GENERATED_FILES = (
     "scripts/setup-odooclaw.sh",
     "scripts/smoke-test-odooclaw.sh",
     "odooclaw/config/config.json",
+    "odooclaw/.gitignore",
 )
 
 
@@ -1297,6 +1298,10 @@ def _strip_odooclaw_block(text):
     for line in text.splitlines(keepends=True):
         if "BEGIN odooclaw" in line:
             skipping = True
+            # Also drop the blank separator the block was appended after, so
+            # disabling restores the original file byte for byte.
+            while out and not out[-1].strip():
+                out.pop()
             continue
         if "END odooclaw" in line:
             skipping = False
@@ -1316,10 +1321,12 @@ def reconcile_odooclaw_files():
 
     - Enabling: append the marker-delimited OdooClaw blocks to the existing
       ``repos.yaml``/``addons.yaml`` without touching the user's own entries.
-    - Disabling: strip those blocks and delete the generated scripts/config.
-      The gateway source clone (``odooclaw/``) and local secrets
-      (``.docker/odooclaw.env``) are left in place for the user to review
-      and delete by hand.
+    - Disabling: strip those blocks and delete the generated scripts, config
+      and ``odooclaw/.gitignore``. ``.docker/odooclaw.env`` is removed by
+      copier itself (it stopped being generated), while ``odooclaw/`` only
+      survives when it holds the gateway source fetched by
+      ``scripts/setup-odooclaw.sh`` — copier never managed that source, so the
+      warning at the end asks the user to delete it by hand.
 
     The ``odooclaw``/``redis`` compose services need no handling here:
     ``devel.yaml``/``prod.yaml`` are not skipped, so copier re-renders them.
@@ -1344,7 +1351,12 @@ def reconcile_odooclaw_files():
         if enabled:
             if "# BEGIN odooclaw" in text:
                 continue  # Already reconciled.
-            path.write_text(text.rstrip("\n") + "\n" + block)
+            base = text.rstrip("\n")
+            # A pristine addons.yaml can be empty: never prepend separators
+            # that would make the file differ from pristine after a round trip.
+            separator = "\n" if base else ""
+            body = block if base else block.lstrip("\n")
+            path.write_text(base + separator + body)
             _logger.info(f"Added OdooClaw entries to {path.relative_to(PROJECT_ROOT)}.")
         elif "# BEGIN odooclaw" in text:
             path.write_text(_strip_odooclaw_block(text))
@@ -1361,9 +1373,12 @@ def reconcile_odooclaw_files():
             _logger.info(f"Removed {rel} (use_odooclaw is now false).")
         if leftovers or (PROJECT_ROOT / "odooclaw").exists():
             _logger.warning(
-                "⚠️  OdooClaw was disabled. Review and delete by hand if not "
-                "needed: odooclaw/ (gateway source clone) and the OdooClaw "
-                "block in .docker/odooclaw.env (may contain secrets)."
+                "⚠️  OdooClaw was disabled. .docker/odooclaw.env and "
+                "odooclaw/config/config.json are gone by now — restore them "
+                "from a backup if you still need their values. If odooclaw/ "
+                "still holds the gateway source fetched by "
+                "scripts/setup-odooclaw.sh, review and delete that directory "
+                "by hand."
             )
 
 
