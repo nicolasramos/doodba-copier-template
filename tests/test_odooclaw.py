@@ -267,6 +267,44 @@ class TestOdooclawBootstrap:
             with pytest.raises(ProcessExecutionError):
                 git("check-ignore", "--quiet", "odooclaw/config/config.json")
 
+    def test_disable_after_bootstrap(self, bootstrapped: Path, tmp_path):
+        """Deactivating after a real bootstrap must not leave the third-party
+        gateway source committable.
+
+        Copier applies its own deletions *after* `after-update` runs, so an
+        ignore file written back for a surviving `odooclaw/` tree would be
+        wiped with the update: the task removes the whole tree instead (it is
+        re-fetchable with scripts/setup-odooclaw.sh on the next enable).
+        """
+        project = tmp_path / "disabled"
+        shutil.copytree(bootstrapped, project)
+
+        answers = project / ".copier-answers.yml"
+        flipped = answers.read_text().replace(
+            "use_odooclaw: true", "use_odooclaw: false"
+        )
+        assert "use_odooclaw: false" in flipped
+        answers.write_text(flipped)
+
+        with local.cwd(project):
+            local["invoke"]("after-update")
+
+        # Generated pieces and the fetched tree are gone ...
+        assert not (project / "scripts" / "setup-odooclaw.sh").exists()
+        assert not (project / "scripts" / "smoke-test-odooclaw.sh").exists()
+        assert not (project / "odooclaw").exists()
+        # ... so there is no third-party file left to stage ...
+        if not (project / ".git").is_dir():
+            git("init", "--quiet", str(project))
+        with local.cwd(project):
+            status = git("status", "--porcelain", "--", "odooclaw")
+        assert status.strip() == ""
+        # ... and the managed blocks are back to the pristine state.
+        addons = project / "odoo" / "custom" / "src" / "addons.yaml"
+        repos = project / "odoo" / "custom" / "src" / "repos.yaml"
+        assert addons.read_bytes() == b""  # pristine addons.yaml is empty
+        assert "# BEGIN odooclaw" not in repos.read_text()
+
     @pytest.mark.skipif(
         not os.environ.get("ODOOCLAW_BUILD_TESTS"),
         reason="set ODOOCLAW_BUILD_TESTS=1 to run the real (network+disk heavy) build",
