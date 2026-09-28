@@ -42,6 +42,11 @@ ODOOCLAW_CHANNELS_ODOO_WEBHOOK_PORT=18790
 ODOOCLAW_CHANNELS_ODOO_WEBHOOK_PATH=/webhook/odoo
 ODOOCLAW_CHANNELS_ODOO_ALLOW_GROUP_MENTIONS=false
 
+# The gateway's HTTP server binds to $ODOOCLAW_GATEWAY_HOST, whose built-in
+# default is 127.0.0.1 — inside a container that makes the published port
+# unreachable and the template's own smoke test fail. Bind all interfaces here.
+ODOOCLAW_GATEWAY_HOST=0.0.0.0
+
 # Odoo XML-RPC credentials used by the odoo-mcp tools.
 # ODOO_DB / ODOOCLAW_CHANNELS_ODOO_TARGET_DB are environment-specific and are
 # set by the devel.yaml / prod.yaml compose files, NOT here, so that one shared

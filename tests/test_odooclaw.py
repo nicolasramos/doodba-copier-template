@@ -141,6 +141,30 @@ class TestOdooclawEnabled:
         assert "mail_bot_odooclaw" in addons["odoo-addons"]
         assert "mail_bot_odooclaw_account" in addons["odoo-addons"]
 
+    def test_gateway_is_reachable_from_the_host(self, project: Path):
+        """A published port is useless if the gateway binds to loopback.
+
+        The gateway's HTTP server listens on $ODOOCLAW_GATEWAY_HOST, whose
+        built-in default is 127.0.0.1. Without overriding it the published port
+        never reaches the process and the shipped smoke test fails.
+        """
+        env = (project / ".docker/odooclaw.env").read_text()
+        assert "ODOOCLAW_GATEWAY_HOST=0.0.0.0" in env
+
+    def test_gateway_has_egress(self, project: Path):
+        """The default network is internal (no internet).
+
+        The gateway has to reach the configured LLM provider, so it must also
+        join the public network — the same one the proxy uses.
+        """
+        for compose in ("devel.yaml", "prod.yaml"):
+            data = yaml.safe_load((project / compose).read_text())
+            networks = data["services"]["odooclaw"].get("networks") or {}
+            assert networks, (
+                f"{compose}: the odooclaw service declares no networks, so it "
+                "falls back to the internal (no-egress) default network"
+            )
+
     def test_no_unrendered_jinja(self, project: Path):
         for path in project.rglob("*"):
             if not path.is_file() or ".git" in path.parts:
