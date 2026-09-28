@@ -20,14 +20,20 @@ answers `@OdooClaw` mentions in Odoo Discuss — into your Doodba stack.
 
 ## What was generated
 
-| Piece                                  | Where                                                                                    |
-| -------------------------------------- | ---------------------------------------------------------------------------------------- |
-| Gateway source (compose build context) | `odooclaw/` (populated by `scripts/setup-odooclaw.sh`; only `config/` is tracked by git) |
-| Gateway config                         | `odooclaw/config/config.json`                                                            |
-| Secrets/env                            | `.docker/odooclaw.env`                                                                   |
-| Compose services (`odooclaw`, `redis`) | inline in `devel.yaml` / `prod.yaml`                                                     |
-| Odoo module repo                       | `odoo/custom/src/repos.yaml` (`nicolasramos/odoo-addons`, branch = your Odoo version)    |
-| Bootstrap / smoke test                 | `scripts/setup-odooclaw.sh`, `scripts/smoke-test-odooclaw.sh`                            |
+| Piece                                  | Where                                                                                        |
+| -------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Gateway source (compose build context) | `odooclaw/` (populated by `scripts/setup-odooclaw.sh`; only `config/config.json` is tracked) |
+| Gateway config                         | `odooclaw/config/config.json`                                                                |
+| Secrets/env                            | `.docker/odooclaw.env`                                                                       |
+| Compose services (`odooclaw`, `redis`) | inline in `devel.yaml` / `prod.yaml`                                                         |
+| Odoo module repo                       | `odoo/custom/src/repos.yaml` (`nicolasramos/odoo-addons`, branch = your Odoo version)        |
+| Bootstrap / smoke test                 | `scripts/setup-odooclaw.sh`, `scripts/smoke-test-odooclaw.sh`                                |
+
+The generated `README.md` deliberately carries **no** OdooClaw section: markdown is not
+byte-stable across renders (this template formats it with `proseWrap: always`), so a
+conditional section makes `copier update` produce an unresolved `README.md` conflict
+that blocks `git commit` when you flip the option. This document and the output of
+`scripts/setup-odooclaw.sh` are the entry points instead.
 
 ## First-time setup
 
