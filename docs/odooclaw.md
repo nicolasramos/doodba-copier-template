@@ -18,6 +18,10 @@ This project was generated with `use_odooclaw: true`, which wires
 [OdooClaw](https://github.com/nicolasramos/odooclaw) — a fully local AI agent that
 answers `@OdooClaw` mentions in Odoo Discuss — into your Doodba stack.
 
+> **Odoo 16, 17 and 18 only.** The OdooClaw Odoo modules are published per Odoo version,
+> so `use_odooclaw` is only offered when generating a project for those versions. On any
+> other version the question is hidden and no OdooClaw files are generated.
+
 ## What was generated
 
 | Piece                                  | Where                                                                                        |

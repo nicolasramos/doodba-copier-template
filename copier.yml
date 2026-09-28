@@ -298,6 +298,10 @@ use_odooclaw:
 
     💡 You will need an LLM provider API key (OpenAI, Anthropic, Ollama...) to make the
     agent answer. Set it in `.docker/odooclaw.env` after generating.
+
+    ⚠️ Available for Odoo 16, 17 and 18 only. The OdooClaw Odoo modules are published
+    per Odoo version, so this question is hidden when you generate a project for any
+    other version, and no OdooClaw files are added to it.
   when: "{{ odoo_version >= 16.0 and odoo_version <= 18.0 }}"
 
 odooclaw_provider:
