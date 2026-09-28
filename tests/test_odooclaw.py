@@ -260,10 +260,14 @@ class TestOdooclawBootstrap:
         )
         (repo / "odooclaw" / "docker" / "Dockerfile").write_text("FROM scratch\n")
         (repo / "odooclaw" / "config" / "config.json").write_text("{}\n")
+        # The gateway's own example config arrives with the rsync; only the
+        # generated config.json may be committed.
+        (repo / "odooclaw" / "config" / "config.example.json").write_text("{}\n")
         with local.cwd(repo):
             git("init", "--quiet")
             # exit 0 => ignored (a raise would fail the test)
             git("check-ignore", "--quiet", "odooclaw/docker/Dockerfile")
+            git("check-ignore", "--quiet", "odooclaw/config/config.example.json")
             with pytest.raises(ProcessExecutionError):
                 git("check-ignore", "--quiet", "odooclaw/config/config.json")
 
@@ -304,6 +308,139 @@ class TestOdooclawBootstrap:
         repos = project / "odoo" / "custom" / "src" / "repos.yaml"
         assert addons.read_bytes() == b""  # pristine addons.yaml is empty
         assert "# BEGIN odooclaw" not in repos.read_text()
+
+    def test_disable_via_real_copier_update(
+        self, bootstrapped: Path, cloned_template, tmp_path_factory
+    ):
+        """A real ``copier update`` to false must leave the repo committable.
+
+        ``test_disable_after_bootstrap`` runs the task by hand and therefore
+        never exercises copier's own merge, which is where two real problems
+        show up: an unresolved conflict in README.md (``git commit`` then
+        refuses to run) and the gateway's own ``config.example.json`` coming
+        back because it is tracked while the template never managed it.
+        """
+        project = tmp_path_factory.mktemp("cycle") / "project"
+        shutil.copytree(bootstrapped, project)
+
+        # Reference: the same answers with the option off, rendered fresh.
+        off = _render(
+            cloned_template,
+            tmp_path_factory.mktemp("off"),
+            odoo_version=18.0,
+            use_odooclaw=False,
+            odooclaw_provider="openai",
+            odooclaw_model="gpt-4o-mini",
+        )
+
+        answers = yaml.safe_load((project / ".copier-answers.yml").read_text())
+        # copier checks out the recorded commit while updating; if the source
+        # cannot resolve it, the failure below would be cryptic.
+        git(
+            "-C",
+            str(cloned_template),
+            "cat-file",
+            "-e",
+            f"{answers['_commit']}^{{commit}}",
+        )
+
+        if not (project / ".git").is_dir():
+            git("init", "--quiet", str(project))
+        with local.cwd(project):
+            # The project's own pre-commit hooks (prettier) rewrite files on
+            # the first commit; keep staging until git takes it.
+            for _ in range(4):
+                git("add", "--all")
+                if not git("status", "--porcelain").strip():
+                    break  # already committed
+                try:
+                    git(
+                        "-c",
+                        "user.email=ci@example.com",
+                        "-c",
+                        "user.name=ci",
+                        "commit",
+                        "--quiet",
+                        "-m",
+                        "bootstrapped",
+                    )
+                    break
+                except ProcessExecutionError:
+                    continue  # hooks modified files; stage them and retry
+            else:
+                raise AssertionError("could not commit the bootstrapped project")
+            assert not git("status", "--porcelain").strip()
+            # What a user gets for `git add -A` after the bootstrap: the
+            # gateway's own example config must not be committable.
+            assert (
+                git("ls-files", "--", "odooclaw/config/config.example.json").strip()
+                == ""
+            )
+            readme_before = (project / "README.md").read_bytes()
+
+            local["copier"](
+                "update",
+                "--trust",
+                "--defaults",
+                "--vcs-ref",
+                "HEAD",
+                "-d",
+                "use_odooclaw=false",
+            )
+
+        # 1. No unresolved conflict: the repository must still be committable.
+        with local.cwd(project):
+            assert git("ls-files", "-u").strip() == ""
+            status = git("status", "--porcelain")
+        conflicts = [
+            line
+            for line in status.splitlines()
+            if line[:2] in {"UU", "AA", "DD", "AU", "UA", "DU", "UD"}
+        ]
+        assert not conflicts, conflicts
+        assert "use_odooclaw: false" in (project / ".copier-answers.yml").read_text()
+
+        # 2. The update must not rewrite the README at all.
+        assert (project / "README.md").read_bytes() == readme_before
+        assert b"OdooClaw" not in readme_before  # section left the template
+
+        # 3. The third-party tree is gone, and nothing under it is committable.
+        gateway = project / "odooclaw"
+        if gateway.exists():
+            leftovers = [
+                str(path.relative_to(project))
+                for path in gateway.rglob("*")
+                if path.is_file()
+            ]
+            assert leftovers == [], leftovers
+        assert not (project / ".docker" / "odooclaw.env").exists()
+        assert not (project / "scripts" / "setup-odooclaw.sh").exists()
+
+        # 4. What the option controls is byte-identical to a render with it off.
+        for rel in (
+            "README.md",
+            "odoo/custom/src/addons.yaml",
+            "odoo/custom/src/repos.yaml",
+        ):
+            assert (project / rel).read_bytes() == (off / rel).read_bytes(), rel
+
+        # 5. And the repo really accepts a commit afterwards (git refuses when
+        #    the index has unmerged entries, hooks aside).
+        with local.cwd(project):
+            git("add", "--all")
+            assert git("ls-files", "--", "odooclaw").strip() == ""
+            git(
+                "-c",
+                "user.email=ci@example.com",
+                "-c",
+                "user.name=ci",
+                "commit",
+                "--quiet",
+                "--no-verify",
+                "--allow-empty",
+                "-m",
+                "odoo disabled",
+            )
 
     @pytest.mark.skipif(
         not os.environ.get("ODOOCLAW_BUILD_TESTS"),
