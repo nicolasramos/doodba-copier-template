@@ -293,7 +293,10 @@ class TestOdooclawBootstrap:
                     "odooclaw",
                 )
             except ProcessExecutionError as exc:
-                if "no space left on device" in str(exc):
+                # [Errno 28] during the gateway's own pip layer (it installs
+                # the NVIDIA CUDA stack through openai-whisper).
+                output = f"{exc.stdout}\n{exc.stderr}\n{exc}".lower()
+                if "no space left on device" in output or "errno 28" in output:
                     pytest.skip(
                         "docker disk full while committing the gateway's ~8 GB "
                         "pip layer; re-run on a docker disk >= 25 GB"
