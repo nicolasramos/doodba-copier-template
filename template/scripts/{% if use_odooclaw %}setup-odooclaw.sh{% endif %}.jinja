@@ -61,6 +61,10 @@ fetch_gateway_source() {
         cp "$saved_config" "$GENERATED_CONFIG"
         rm -f "$saved_config"
     fi
+    # Drop the temporary checkout right away: clearing TMP_DIR without removing
+    # it would disarm the EXIT trap (cleanup() skips an empty variable) and
+    # leak the whole gateway clone (~70 MB) on every bootstrap.
+    rm -rf "$TMP_DIR"
     TMP_DIR=""
 }
 
