@@ -1,13 +1,15 @@
 """Tests for the optional OdooClaw integration (use_odooclaw)."""
 
 import json
+import os
+import shutil
 from pathlib import Path
 
 import pytest
 import yaml
 from copier import run_copy
-from plumbum import local
-from plumbum.cmd import docker
+from plumbum import ProcessExecutionError, local
+from plumbum.cmd import docker, git
 
 # Versions where the use_odooclaw question is available (copier.yml `when`).
 ODOOCLAW_ODOO_VERSIONS = (16.0, 17.0, 18.0)
@@ -41,11 +43,20 @@ class TestOdooclawDisabled:
         for rel in (
             ".docker/odooclaw.env",
             "odooclaw/config/config.json",
+            "odooclaw/.gitignore",
             "scripts/setup-odooclaw.sh",
             "scripts/smoke-test-odooclaw.sh",
         ):
             assert not (project / rel).exists(), f"{rel} must not be generated"
         assert not (project / "odooclaw").exists()
+        # The conditional path template must not leak anything anywhere.
+        assert "OdooClaw gateway" not in (project / ".gitignore").read_text()
+        stray = [
+            str(path.relative_to(project))
+            for path in project.rglob("*")
+            if "{%" in path.name or "%}" in path.name
+        ]
+        assert not stray, f"unrendered paths generated: {stray}"
 
     def test_no_services_in_compose(self, project: Path):
         for compose in ("devel.yaml", "prod.yaml"):
@@ -97,6 +108,19 @@ class TestOdooclawEnabled:
         assert "ODOOCLAW_JOB_STORE=odoo" in env
         # DB is NOT pinned in the shared env file (it is per-compose-file).
         assert "ODOO_DB=" not in env
+        # compose resolves ${...} in an env_file from the shell / project .env,
+        # never from the file itself: a reference here would silently be empty.
+        assignments = [
+            line
+            for line in env.splitlines()
+            if line.strip() and not line.startswith("#")
+        ]
+        assert not [line for line in assignments if "${" in line], (
+            "env_file values must be literal, not ${...}"
+        )
+        assert any(
+            line.startswith("ODOO_PASSWORD=") for line in assignments
+        )  # credentials are filled in by hand here
 
     def test_services_in_compose(self, project: Path):
         for compose, expected_db in (("devel.yaml", "devel"), ("prod.yaml", "prod")):
@@ -170,3 +194,108 @@ class TestOdooclawVersions:
         # Compose still valid on every supported version
         with local.cwd(project):
             docker("compose", "-f", "common.yaml", "-f", "devel.yaml", "config", "-q")
+
+
+class TestOdooclawBootstrap:
+    """`scripts/setup-odooclaw.sh` must really produce compose's build context.
+
+    The compose service builds with `context: ./odooclaw` +
+    `dockerfile: docker/Dockerfile`, and the project already ships
+    `odooclaw/config/config.json`, so the script cannot simply `git clone` the
+    repository into `odooclaw/`. These tests run it for real (it clones the
+    gateway from GitHub) and check what the build context ends up looking like.
+    """
+
+    @pytest.fixture(scope="class")
+    def project(self, request, tmp_path_factory):
+        return _render(
+            request.getfixturevalue("cloned_template"),
+            tmp_path_factory.mktemp("boot"),
+            odoo_version=18.0,
+            use_odooclaw=True,
+            odooclaw_provider="openai",
+            odooclaw_model="gpt-4o-mini",
+        )
+
+    @pytest.fixture(scope="class")
+    def bootstrapped(self, project: Path):
+        with local.cwd(project):
+            local["bash"]("scripts/setup-odooclaw.sh")
+        return project
+
+    def test_build_context_is_produced(self, bootstrapped: Path):
+        """The exact path compose asks for must exist after the script."""
+        assert (bootstrapped / "odooclaw" / "docker" / "Dockerfile").is_file()
+        assert (bootstrapped / "odooclaw" / "go.mod").is_file()
+
+    def test_compose_build_paths_exist(self, bootstrapped: Path):
+        """`docker compose config` does not check the Dockerfile path: do it."""
+        for compose in ("devel.yaml", "prod.yaml"):
+            build = yaml.safe_load((bootstrapped / compose).read_text())["services"][
+                "odooclaw"
+            ]["build"]
+            dockerfile = bootstrapped / build["context"] / build["dockerfile"]
+            assert dockerfile.is_file(), f"{compose}: {dockerfile} does not exist"
+
+    def test_generated_config_is_preserved(self, bootstrapped: Path):
+        """The gateway source must not overwrite the rendered config.json."""
+        raw = (bootstrapped / "odooclaw" / "config" / "config.json").read_text()
+        config = json.loads(raw)
+        assert config["agents"]["defaults"]["provider"] == "openai"
+        assert config["agents"]["defaults"]["model"] == "gpt-4o-mini"
+        assert "${" not in raw
+
+    def test_rerun_is_idempotent(self, bootstrapped: Path):
+        with local.cwd(bootstrapped):
+            output = local["bash"]("scripts/setup-odooclaw.sh")
+        assert "already present" in output
+
+    def test_gateway_source_is_git_ignored(self, bootstrapped: Path, tmp_path):
+        """Third-party source must not be committable; config.json must be."""
+        repo = tmp_path / "ignore-check"
+        (repo / "odooclaw" / "docker").mkdir(parents=True)
+        (repo / "odooclaw" / "config").mkdir(parents=True)
+        shutil.copy(
+            bootstrapped / "odooclaw" / ".gitignore", repo / "odooclaw" / ".gitignore"
+        )
+        (repo / "odooclaw" / "docker" / "Dockerfile").write_text("FROM scratch\n")
+        (repo / "odooclaw" / "config" / "config.json").write_text("{}\n")
+        with local.cwd(repo):
+            git("init", "--quiet")
+            # exit 0 => ignored (a raise would fail the test)
+            git("check-ignore", "--quiet", "odooclaw/docker/Dockerfile")
+            with pytest.raises(ProcessExecutionError):
+                git("check-ignore", "--quiet", "odooclaw/config/config.json")
+
+    @pytest.mark.skipif(
+        not os.environ.get("ODOOCLAW_BUILD_TESTS"),
+        reason="set ODOOCLAW_BUILD_TESTS=1 to run the real (network+disk heavy) build",
+    )
+    def test_docker_compose_build(self, bootstrapped: Path):
+        """The acceptance criterion: the image really builds from source.
+
+        The gateway's Dockerfile installs the NVIDIA CUDA stack through
+        ``openai-whisper`` (~8 GB), and the snapshotter needs a second copy of
+        that layer while committing it: a docker disk under ~25 GB cannot hold
+        it. That is an environment limit, not a defect in this branch, so it
+        skips explicitly instead of reporting a false failure; anything else
+        (bad context path, compile error) still fails the test.
+        """
+        with local.cwd(bootstrapped):
+            try:
+                docker(
+                    "compose",
+                    "-f",
+                    "common.yaml",
+                    "-f",
+                    "devel.yaml",
+                    "build",
+                    "odooclaw",
+                )
+            except ProcessExecutionError as exc:
+                if "no space left on device" in str(exc):
+                    pytest.skip(
+                        "docker disk full while committing the gateway's ~8 GB "
+                        "pip layer; re-run on a docker disk >= 25 GB"
+                    )
+                raise
