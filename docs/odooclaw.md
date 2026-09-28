@@ -97,18 +97,20 @@ copier copy --defaults -d odooclaw_provider=ollama -d odooclaw_model=llama3 . <n
 ## Disabling
 
 Set `use_odooclaw: false` in `.copier-answers.yml` and run `copier update`. The
-after-update task strips the OdooClaw blocks from `repos.yaml`/`addons.yaml` and removes
-the generated scripts plus `odooclaw/config/config.json` and `odooclaw/.gitignore`.
+after-update task strips the OdooClaw blocks from `repos.yaml`/`addons.yaml`, removes
+the generated scripts and deletes the whole `odooclaw/` tree — the generated
+`config.json` and, if you had run `scripts/setup-odooclaw.sh`, the fetched gateway
+source as well. That source is pure cache: enable the option again and re-run the script
+to fetch it back. (Leaving the tree behind with an ignore file was the obvious
+alternative, but copier applies its own deletions _after_ `after-update` runs, so the
+ignore file would not survive the update and every third-party file would become
+committable.)
 
-Before running it, two things copier itself does with the files it stops generating:
+Before running it, one more thing copier itself does with the files it stops generating:
 
 - **`.docker/odooclaw.env` is deleted** (copier removes whatever it generated and no
   longer generates). Copy it aside first if you want to keep your API key and
   credentials — nothing else in the project holds them.
-- **`odooclaw/` is deleted too** when it only holds copier-generated files. If you ran
-  `scripts/setup-odooclaw.sh`, the fetched gateway source is _not_ managed by copier and
-  stays behind: delete `odooclaw/` yourself once you are sure you do not need the build
-  context any more.
 
 ## Docs
 

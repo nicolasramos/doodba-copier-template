@@ -1298,9 +1298,9 @@ def _strip_odooclaw_block(text):
     for line in text.splitlines(keepends=True):
         if "BEGIN odooclaw" in line:
             skipping = True
-            # Also drop the blank separator the block was appended after, so
-            # disabling restores the original file byte for byte.
-            while out and not out[-1].strip():
+            # Drop the blank separator the append added — only that one, so a
+            # file with blank lines of its own keeps them across an on/off cycle.
+            if out and not out[-1].strip():
                 out.pop()
             continue
         if "END odooclaw" in line:
@@ -1315,18 +1315,19 @@ def reconcile_odooclaw_files():
     """Reconcile skipped OdooClaw files with the current ``use_odooclaw`` answer.
 
     Copier never overwrites files listed in ``_skip_if_exists``
-    (``repos.yaml``/``addons.yaml``) and never deletes files that stopped being
-    generated, so both transitions of ``use_odooclaw`` need help on
-    ``copier update``:
+    (``repos.yaml``/``addons.yaml``), so both transitions of ``use_odooclaw``
+    need help from ``after-update``:
 
     - Enabling: append the marker-delimited OdooClaw blocks to the existing
       ``repos.yaml``/``addons.yaml`` without touching the user's own entries.
-    - Disabling: strip those blocks and delete the generated scripts, config
-      and ``odooclaw/.gitignore``. ``.docker/odooclaw.env`` is removed by
-      copier itself (it stopped being generated), while ``odooclaw/`` only
-      survives when it holds the gateway source fetched by
-      ``scripts/setup-odooclaw.sh`` — copier never managed that source, so the
-      warning at the end asks the user to delete it by hand.
+    - Disabling: strip those blocks, delete the generated scripts and remove the
+      whole ``odooclaw/`` tree (generated config plus the fetched gateway
+      source, which ``scripts/setup-odooclaw.sh`` fetches again on the next
+      enable). The tree has to go here: copier applies its own deletions
+      *after* this task runs, so an ignore file written back for it would not
+      survive the update and every third-party file would become committable.
+      ``.docker/odooclaw.env`` is removed by copier itself (it stopped being
+      generated).
 
     The ``odooclaw``/``redis`` compose services need no handling here:
     ``devel.yaml``/``prod.yaml`` are not skipped, so copier re-renders them.
@@ -1365,20 +1366,50 @@ def reconcile_odooclaw_files():
             )
 
     if not enabled:
+        gateway_root = PROJECT_ROOT / "odooclaw"
+        had_gateway = gateway_root.exists()
+        removed = False
+        if had_gateway:
+            # Copier applies its own deletions *after* this task runs (its
+            # render of the disabled version has no odooclaw/), so an ignore
+            # file written back here would not survive the update and the
+            # fetched tree would end up committable. The tree is pure cache —
+            # generated config plus a clone scripts/setup-odooclaw.sh fetches
+            # again — so remove it instead of leaving it behind.
+            shutil.rmtree(gateway_root, ignore_errors=True)
+            removed = not gateway_root.exists()
+
         leftovers = [
-            rel for rel in _ODOOCLAW_GENERATED_FILES if (PROJECT_ROOT / rel).exists()
+            rel
+            for rel in _ODOOCLAW_GENERATED_FILES
+            if (PROJECT_ROOT / rel).exists()
+            # If the tree survived, its .gitignore is what keeps the source
+            # untracked: never strip it in that case.
+            and not (rel == "odooclaw/.gitignore" and had_gateway and not removed)
         ]
         for rel in leftovers:
             (PROJECT_ROOT / rel).unlink()
             _logger.info(f"Removed {rel} (use_odooclaw is now false).")
-        if leftovers or (PROJECT_ROOT / "odooclaw").exists():
+
+        if had_gateway and not removed:
             _logger.warning(
-                "⚠️  OdooClaw was disabled. .docker/odooclaw.env and "
-                "odooclaw/config/config.json are gone by now — restore them "
-                "from a backup if you still need their values. If odooclaw/ "
-                "still holds the gateway source fetched by "
-                "scripts/setup-odooclaw.sh, review and delete that directory "
-                "by hand."
+                "⚠️  odooclaw/ could not be removed: its .gitignore stays so "
+                "the third-party source remains untracked; delete the "
+                "directory by hand."
+            )
+        if leftovers or had_gateway:
+            if removed:
+                note = (
+                    "odooclaw/ (generated config plus the fetched gateway "
+                    "source) was removed with it; run scripts/setup-odooclaw.sh "
+                    "again after re-enabling to fetch it back. "
+                )
+            else:
+                note = ""
+            _logger.warning(
+                "⚠️  OdooClaw was disabled. " + note + ".docker/odooclaw.env "
+                "is gone too — restore it from a backup if you still need its "
+                "values."
             )
 
 
